@@ -1,0 +1,12 @@
+<ActionBar class="action-bar" backgroundColor="black">
+    <StackLayout orientation="horizontal" height="60" horizontalAlignment="center">
+        <image src="~/Assets/Wide310x150Logo.scale-200.png" height="60" stretch="aspectFit" horizontalAlignment="center"></image>
+    </StackLayout>
+</ActionBar>
+            
+<GridLayout class="page sherlockBG">
+    <StackLayout verticalAlignment="bottom" horizontalAlignment="center">
+        <button class="btn btn-active permanentmarker large m-20" color="green" text="Start Game" (tap)="newGame();"></button>
+        <button class="btn btn-active permanentmarker large m-20" color="red" text="Instructions" (tap)="showInstructions();"></button>
+    </StackLayout>
+</GridLayout>

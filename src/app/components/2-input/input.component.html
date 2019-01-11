@@ -1,0 +1,79 @@
+<ActionBar class="action-bar" backgroundColor="black">
+    <StackLayout orientation="horizontal" height="60" horizontalAlignment="center">
+        <button class="btn btn-outline btn-active btn-rounded-lg" color="red" text="{{prevButtText}}" horizontalAlignment="left" (tap)="onPrevTap();"></button>
+        <image src="~/Assets/Wide310x150Logo.scale-200.png" height="60" stretch="aspectFit" horizontalAlignment="center"></image>
+        <button class="btn btn-outline btn-active btn-rounded-lg" color="green" text="{{nextButtText}}" [isEnabled]="!(((stepNo===2) && !areNamesValid()) || ((stepNo===3) && !areCardNosValid()) || ((stepNo===4) && !areCardsValid()))" horizontalAlignment="right" (tap)="onNextTap();"></button>
+    </StackLayout>
+</ActionBar>
+
+<GridLayout class="page sherlockwallBG">
+    <ScrollView>
+        <StackLayout *ngIf="stepNo===1" class="form card" horizontalAlignment="center" verticalAlignment="center">
+            <Label text="Detective Population Details:" class="card text-center large permanentmarker"></Label>
+            <StackLayout class="input-field card">
+                <Label text="Number of Detectives :" class="label font-weight-bold m-b-5 opensans"></Label>
+                <Label text="{{data.input.noPlayers}}" class="large opensans"></Label>
+                <Slider minValue="3" maxValue="6" class="slider" [(ngModel)]="data.input.noPlayers" (valueChange)="onSliderValueChange()"></Slider>
+            </StackLayout>
+            <StackLayout class="input-field card">
+                <Label text="Your position among them :" class="label font-weight-bold m-b-5 opensans"></Label>
+                <Label text="{{data.input.playerPos}}" class="large"></Label>
+                <Slider minValue="1" [maxValue]="data.input.noPlayers" class="slider" [(ngModel)]="data.input.playerPos" (valueChange)="onSliderValueChange()"></Slider>
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+                 
+    <ScrollView>
+        <StackLayout *ngIf="stepNo===2" class="form card" horizontalAlignment="center" verticalAlignment="center">
+            <Label text="Detective Names " class="card text-center large permanentmarker"></Label>
+            <StackLayout class="input-field card">
+                <StackLayout class="input-field">
+                    <Label text="Enter Your name" class="label font-weight-bold m-b-5 opensans"></Label>
+                    <TextField class="input card" [(ngModel)]="data.input.playerNames[data.input.playerPos-1]"></TextField>
+                </StackLayout>
+            </StackLayout>
+            <StackLayout class="input-field card">
+                <StackLayout *ngFor="let i of tempArr" class="input-field">
+                    <Label text="Enter name of Detective {{i}}" class="label font-weight-bold m-b-5 opensans"></Label>
+                    <TextField class="input card" [(ngModel)]="data.input.playerNames[i-1]"></TextField>
+                </StackLayout>
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+
+    <ScrollView>
+        <StackLayout *ngIf="stepNo===3" class="form card" horizontalAlignment="center" verticalAlignment="center">
+            <Label text="Number of Cards with Detectives" class="card text-center large permanentmarker"></Label>
+            <StackLayout class="input-field card">
+                <StackLayout class="input-field">
+                    <Label text="Enter No. of cards with you:" class="label font-weight-bold m-b-5 opensans"></Label>
+                    <TextField class="input card" keyboardType="number" maxLength="2" [(ngModel)]="data.input.playerCardNos[data.input.playerPos-1]"></TextField>
+                </StackLayout>
+            </StackLayout>
+            <StackLayout class="input-field card">
+                <StackLayout *ngFor="let i of tempArr" class="input-field">
+                    <Label text="Enter No. of cards with Detective {{i}}" class="label font-weight-bold m-b-5 opensans"></Label>
+                    <TextField class="input card" keyboardType="number" maxLength="2" [(ngModel)]="data.input.playerCardNos[i-1]"></TextField>
+                </StackLayout>
+            </StackLayout>
+        </StackLayout>
+    </ScrollView>
+
+    <StackLayout *ngIf="stepNo===4" class="form">
+        <Label text="Reveal your Cards" class="card text-center large permanentmarker"></Label>
+        <ListView class="list-group" [items]="data.game.cards" (itemTap)="onCardListTap($event)" verticalAlignment="top" horizontalAlignment="center">
+            <ng-template let-card="item">
+                <GridLayout class="list-group-item" rows="auto, *" columns="80, *">
+                    <Image row="0" col="0" [src]="card.imgTokenPath" height="100" class="img-circle" (tap)="imgTapped(card.type, card.ind);"  rowSpan="2"></Image>
+                    <Label row="0" col="1" [text]="card.name" class="list-group-item-heading m-l-20 permanentmarker"></Label>
+                    <Label row="1" col="1" *ngIf="isAlreadyThere(card);" text="Selected" color="green" class="list-group-item-text m-l-30 opensans"></Label>
+                </GridLayout>
+            </ng-template>
+        </ListView>
+    </StackLayout>
+
+    <StackLayout *ngIf="stepNo===5" class="form">
+        <Label text="Fabricating the Game Arena" class="card text-center large permanentmarker"></Label>
+        <ActivityIndicator busy="true" width="100" height="100" class="activity-indicator"></ActivityIndicator>
+    </StackLayout>
+</GridLayout>

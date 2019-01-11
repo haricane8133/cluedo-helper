@@ -1,0 +1,91 @@
+/*
+In NativeScript, the app.css file is where you place CSS rules that
+you would like to apply to your entire application. Check out
+http://docs.nativescript.org/ui/styling for a full list of the CSS
+selectors and properties you can use to style UI components.
+
+/*
+In many cases you may want to use the NativeScript core theme instead
+of writing your own CSS rules. For a full list of class names in the theme
+refer to http://docs.nativescript.org/ui/theme.
+*/
+@import '~nativescript-theme-core/css/core.dark.css';
+
+/*
+For example, the following CSS rule changes the font size of all UI
+components that have the btn class name.
+*/
+.btn {
+    font-size: 18;
+}
+
+.large {
+    font-size: 22;
+}
+
+.sherlockBG {
+    background-image: url("~/Assets/sherlock-shadow.jpg");
+    background-size: cover;
+}
+
+.sherlockwallBG {
+    background-image: url("~/Assets/sherlock-221b-wallpaper2.jpg");
+    background-size: cover;
+}
+
+.blackboardBG {
+    background-image: url("~/Assets/blackboard.jpg");
+    background-size: cover;
+}
+
+.roboto {
+    font-family: "Roboto-Regular";
+}
+
+.opensans {
+    font-family: "OpenSans-Regular";
+}
+
+.gaegu {
+    font-family: "Gaegu-Regular";
+}
+
+.secularone {
+    font-family: "SecularOne-Regular";
+}
+
+.pacifico {
+    font-family: "Pacifico-Regular";
+}
+
+.kaushan {
+    font-family: "KaushanScript-Regular";
+}
+
+.permanentmarker {
+    font-family: "PermanentMarker-Regular";
+}
+
+.white {
+    color: whitesmoke;
+}
+
+.card {
+    background-color: black;
+    color: whitesmoke;
+    border-style: solid;
+    border-color: white;
+    border-width: 5px;
+    border-radius: 10px;
+    box-shadow: 15px 20px 18px whitesmoke;
+}
+
+.fab-button {
+    height: 70;
+    width: 70;
+    margin: 15;
+    background-color: #ff4081; 
+    float: right;
+    vertical-align: bottom;
+    horizontal-align: right;
+}
