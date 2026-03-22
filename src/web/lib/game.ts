@@ -1233,6 +1233,9 @@ export const createManualEditDraft = (game: GameState, cardId: CardId): ManualEd
 export const applyManualEdit = (game: GameState, edit: ManualEditDraft): GameState => {
   const next = cloneGame(game);
   next.proofs = next.proofs.filter((proof) => !proof.candidateCardIds.includes(edit.cardId));
+  next.userExposureEvents = next.userExposureEvents.filter((event) =>
+    event.cardId !== edit.cardId && !event.candidateCardIds?.includes(edit.cardId)
+  );
 
   const card = getCardState(next, edit.cardId);
   const cardName = getCardDefinition(edit.cardId).name;

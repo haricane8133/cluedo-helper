@@ -1,13 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyManualEdit,
   applyProofNo,
   applyProofYes,
   applyProofShown,
+  completeShownCard,
   continueAfterProofNo,
   continueAfterUserProof,
   commitTurn,
   createGameFromSetup,
+  createManualEditDraft,
   createTurnDraft,
   setSelectedTab,
   getSetupStepErrors,
@@ -171,6 +174,48 @@ test("committed turns count how many times each card was suspected", () => {
   assert.equal(committed.cards["weapon-2"].suggestedCount, 1);
   assert.equal(committed.cards["room-2"].suggestedCount, 1);
   assert.equal(committed.cards["suspect-3"].suggestedCount, 0);
+});
+
+test("shown-card confirmation requires a selected card", () => {
+  const game = createGameFromSetup(createSetup());
+  const playerTwo = game.players[1]!.id;
+  const draft = createTurnDraft(game);
+
+  draft.step = "user-shown";
+  draft.suggestedCardIds = ["suspect-2", "weapon-2", "room-2"];
+  draft.currentProverId = playerTwo;
+  draft.shownCardId = null;
+
+  assert.throws(() => completeShownCard(draft), /Select the card that was shown\./);
+
+  draft.shownCardId = "suspect-2";
+  assert.doesNotThrow(() => completeShownCard(draft));
+});
+
+test("manual edit clears stale exposure memory for the edited card", () => {
+  const game = createGameFromSetup(createSetup());
+  const ashaId = game.players[1]!.id;
+
+  game.turnIndex = 1;
+  const draft = createTurnDraft(game);
+  draft.step = "user-prove";
+  draft.suggestedCardIds = ["suspect-2", "weapon-2", "room-2"];
+  draft.currentProverId = game.userPlayerId;
+  continueAfterUserProof(draft);
+
+  assert.deepEqual(getDetectiveKnowledgeSummary(draft.game, ashaId).knownNotOwnerCardIds, ["suspect-2", "weapon-2", "room-2"]);
+
+  const clearOwnedCard = createManualEditDraft(draft.game, "suspect-0");
+  clearOwnedCard.mode = "owner";
+  clearOwnedCard.ownerId = null;
+  const afterClearingOwnedCard = applyManualEdit(draft.game, clearOwnedCard);
+
+  const edit = createManualEditDraft(afterClearingOwnedCard, "suspect-2");
+  edit.mode = "owner";
+  edit.ownerId = afterClearingOwnedCard.userPlayerId;
+
+  const corrected = applyManualEdit(afterClearingOwnedCard, edit);
+  assert.deepEqual(getDetectiveKnowledgeSummary(corrected, ashaId).knownNotOwnerCardIds, ["weapon-2", "room-2"]);
 });
 
 test("setup step errors only show the current page requirements", () => {

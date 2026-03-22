@@ -137,7 +137,8 @@ export const GamePage = () => {
     ? turnDraft.suggestedCardIds.filter((cardId) => game.cards[cardId].ownerId === game.userPlayerId)
     : [];
   const canProceedSuggestion = turnDraft ? isValidSuggestion(turnDraft.suggestedCardIds) : false;
-  const canConfirmShownCard = userMatchingCards.length === 0 || Boolean(turnDraft?.shownCardId);
+  const canContinueUserProof = userMatchingCards.length === 0 || Boolean(turnDraft?.shownCardId);
+  const canConfirmObservedShownCard = Boolean(turnDraft?.shownCardId);
   const timelineEntries = useMemo(() => getAuditTimelineEntries(history), [history]);
   const exposureSummary = useMemo(() => getUserExposureSummary(game), [game]);
   const exposureByCategory = useMemo(() => getUserExposureCompactByCategory(game), [game]);
@@ -508,7 +509,7 @@ export const GamePage = () => {
         <p className="subtle" style={{ margin: 0 }}>You do not hold any of the suggested cards.</p>
       )}
       <div className="button-row">
-        <button className="button primary" onClick={actions.turnUserContinue} disabled={!canConfirmShownCard}>
+        <button className="button primary" onClick={actions.turnUserContinue} disabled={!canContinueUserProof}>
           {userMatchingCards.length > 0 ? "Confirm Shown Card" : "Continue"}
         </button>
       </div>
@@ -519,7 +520,7 @@ export const GamePage = () => {
     <section className="panel game-card stack">
       <h2 className="section-title" style={{ marginTop: 0 }}>What card was shown?</h2>
       <div className="button-row">
-        <button className="button primary" onClick={actions.confirmShownCard} disabled={!canConfirmShownCard}>
+        <button className="button primary" onClick={actions.confirmShownCard} disabled={!canConfirmObservedShownCard}>
           Confirm
         </button>
       </div>
