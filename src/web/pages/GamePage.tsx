@@ -200,9 +200,9 @@ export const GamePage = () => {
         return (
           <article key={player.id} className="panel game-card detective-card stack">
             <div>
-              <h3 className="section-title" style={{ marginTop: 0 }}>
+              <h1 className="section-title" style={{ marginTop: 0 }}>
                 {player.id === game.userPlayerId ? "You" : player.name}
-              </h3>
+              </h1>
             </div>
             {player.id === game.userPlayerId ? (
               <div className="exposure-grid user-hand-grid">
@@ -230,6 +230,9 @@ export const GamePage = () => {
               </div>
             ) : (
               <>
+                <div className="meta-line">
+                  <strong>Cards we know they have:</strong>
+                </div>
                 <div className="detective-hand">
                   {hand.knownCardIds.map((cardId) => {
                     const card = getCardDefinition(cardId);
@@ -249,7 +252,7 @@ export const GamePage = () => {
                 </div>
                 {knowledge && (
                   <>
-                  <div className="meta-line">
+                    <div className="meta-line">
                       <strong>Cards we suspect they may have:</strong>
                       {knowledge.proofMemories.length > 0
                         ? knowledge.proofMemories.map((memory, index) => (
@@ -260,19 +263,21 @@ export const GamePage = () => {
                         : <span>None</span>}
                     </div>
                     <div className="meta-line">
+                      <strong>Cards we know they don't have:</strong>
+                      {
+                        Object.keys(game.cards).map(
+                          (cardId) => game.cards[cardId].notOwnerIds.includes(player.id) &&
+                          <span key={`${player.id}:donthave:${cardId}`} className="tag">
+                            {getCardDefinition(cardId).name}
+                          </span>
+                        )
+                      }
+                    </div>
+                    <br/>
+                    <div className="meta-line">
                       <strong>Cards they know you have:</strong>
                       {knowledge.exactCardIds.length > 0
                         ? knowledge.exactCardIds.map((cardId) => <span key={`${player.id}:known:${cardId}`} className="tag">{getCardDefinition(cardId).name}</span>)
-                        : <span>None</span>}
-                    </div>
-                    <div className="meta-line">
-                      <strong>Cards they know you don't have:</strong>
-                      {knowledge.knownNotOwnerCardIds.length > 0
-                        ? knowledge.knownNotOwnerCardIds.map((cardId) => (
-                            <span key={`${player.id}:not-owner:${cardId}`} className="tag">
-                              {getCardDefinition(cardId).name}
-                            </span>
-                          ))
                         : <span>None</span>}
                     </div>
                     <div className="meta-line">
@@ -281,6 +286,16 @@ export const GamePage = () => {
                         ? knowledge.publicExposureCounts.map((entry) => (
                             <span key={`${player.id}:public:${entry.cardId}`} className="tag">
                               {getCardDefinition(entry.cardId).name} x{entry.count}
+                            </span>
+                          ))
+                        : <span>None</span>}
+                    </div>
+                    <div className="meta-line">
+                      <strong>Cards they know you don't have:</strong>
+                      {knowledge.knownNotOwnerCardIds.length > 0
+                        ? knowledge.knownNotOwnerCardIds.map((cardId) => (
+                            <span key={`${player.id}:not-owner:${cardId}`} className="tag">
+                              {getCardDefinition(cardId).name}
                             </span>
                           ))
                         : <span>None</span>}
@@ -402,25 +417,29 @@ export const GamePage = () => {
         <section className="banner stack">
           <div>
             <h3 className="section-title" style={{ margin: 0 }}>What The Table Knows About Your Cards</h3>
-            <p className="subtle" style={{ margin: "0.35rem 0 0" }}>
-              Use this when choosing what to suggest and, later, which card to reveal. Direct reveals count detectives who have definitely seen the card. Public proof turns count how often that card was part of a proof visible to the table.
-            </p>
           </div>
-          <div className="exposure-grid compact">
-            {Object.entries(exposureByCategory).map(([category, entries]) => (
-              <article key={category} className="status-card exposure-card">
-                <div className="card-meta">
-                  <div className="card-name">{category[0]?.toUpperCase()}{category.slice(1)}</div>
-                  {entries.length > 0 ? entries.map((entry) => (
-                    <div key={`${category}:${entry.cardId}`} className="meta-line exposure-line">
-                      <strong>{getCardDefinition(entry.cardId).name}</strong>
-                      <span className="tag">Exact: {entry.exactRevealCount}</span>
-                      <span className="tag">Seen in proofs: {entry.publicExposureTurnCount}</span>
+          <div className="exposure-grid user-hand-grid">
+            {exposureSummary.byCard.map((entry) => {
+              const card = getCardDefinition(entry.cardId);
+              return (
+                <article key={entry.cardId} className="status-card user-exposure-card">
+                  <Link to={`/img/${entry.cardId}`}>
+                    <img className="card-thumb" src={getTokenImagePath(entry.cardId)} alt={card.name} />
+                  </Link>
+                  <div className="card-meta">
+                    <div className="card-name">{card.name}</div>
+                    <div className="meta-line">
+                      <strong>Direct Reveals:</strong>
+                      <span>{entry.exactRevealCount}</span>
                     </div>
-                  )) : <span>None of your cards in this category.</span>}
-                </div>
-              </article>
-            ))}
+                    <div className="meta-line">
+                      <strong>Indirect Reveals:</strong>
+                      <span>{entry.publicExposureTurnCount}</span>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       )}
@@ -494,7 +513,7 @@ export const GamePage = () => {
                     {turnDraft?.shownCardId === cardId && <span className="tag tag-success">Selected</span>}
                   </div>
                   <div className="meta-line">
-                    <strong>Other Direct Reveals:</strong>
+                    <strong>Direct Reveals:</strong>
                     <span>{otherExactViewers.length}</span>
                   </div>
                   <div className="meta-line">

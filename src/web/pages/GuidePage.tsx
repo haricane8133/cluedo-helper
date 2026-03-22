@@ -19,7 +19,7 @@ const sections = [
     ]
   },
   {
-    title: "Proof Memory",
+    title: "Proof Memory / Indirect Reveal",
     lines: [
       "When a detective proves a suggestion but the exact card is unknown, the engine remembers that they must own one of those candidate cards.",
       "Later eliminations can shrink that remembered set until only one card remains, at which point the engine resolves ownership automatically.",
@@ -27,7 +27,7 @@ const sections = [
     ]
   },
   {
-    title: "Exposure Memory",
+    title: "Exposure Memory / Direct Reveal",
     lines: [
       "When you prove a suggestion, the app now remembers which detective definitely saw the exact card you chose.",
       "It also counts how often one of your cards was part of a public proof that other detectives could observe.",
