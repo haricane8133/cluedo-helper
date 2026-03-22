@@ -1,0 +1,49 @@
+# Dependencies
+/node_modules/
+
+# Build outputs
+/dist/
+/dist-tests/
+/coverage/
+*.tsbuildinfo
+
+# Environment overrides
+.env
+.env.*
+!.env.example
+*.local
+
+# Editor settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Operating system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Temporary and cache files
+.tmp/
+tmp/
+.cache/
+.eslintcache
+.cloud/
+.project
+typings/
+
+# Legacy NativeScript artifacts
+/App_Resources/
+/hooks/
+/platforms/

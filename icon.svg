@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Cluedo Helper</title>
+  <desc id="desc">A gold monogram on a dark board-like background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1410" />
+      <stop offset="100%" stop-color="#090705" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0d48a" />
+      <stop offset="100%" stop-color="#9c6a1b" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <circle cx="256" cy="256" r="188" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" />
+  <path d="M150 178h56v156h108v50H150z" fill="url(#gold)" />
+  <path d="M246 178h57c52 0 88 34 88 78 0 45-35 78-88 78h-57zm56 50v56h4c24 0 39-12 39-28 0-17-15-28-39-28z" fill="#f6efe6" opacity="0.95" />
+</svg>
