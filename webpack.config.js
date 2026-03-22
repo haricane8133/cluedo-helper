@@ -2,21 +2,28 @@ const path = require("path");
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+const { homepage } = require("./package.json");
+
+const getPublicPath = () => {
+  if (!homepage) {
+    return "";
+  }
+
+  const pathname = new URL(homepage).pathname.replace(/\/$/, "");
+  return pathname ? `${pathname}/` : "/";
+};
 
 module.exports = (env, argv) => {
   const mode = argv.mode || "development";
   const isProduction = mode === "production";
-  const homepage = process.env.npm_package_homepage || "";
-  const publicPath = isProduction && homepage
-    ? `${new URL(homepage).pathname.replace(/\/$/, "")}/`
-    : "";
+  const publicPath = getPublicPath();
 
   return {
     mode,
     entry: path.resolve(__dirname, "src/web/main.tsx"),
     output: {
       path: path.resolve(__dirname, "dist"),
-      filename: isProduction ? "assets/[name].[contenthash:8].js" : "assets/[name].js",
+      filename: isProduction ? "Assets/[name].[contenthash:8].js" : "Assets/[name].js",
       publicPath,
       clean: true
     },
@@ -62,11 +69,19 @@ module.exports = (env, argv) => {
       })
     ],
     devServer: {
-      static: path.resolve(__dirname, "dist"),
+      static: {
+        directory: path.resolve(__dirname, "dist"),
+        publicPath
+      },
+      devMiddleware: {
+        publicPath
+      },
       host: "0.0.0.0",
       port: 3000,
       hot: true,
-      historyApiFallback: true,
+      historyApiFallback: {
+        index: `${publicPath}index.html`
+      },
       open: false
     }
   };

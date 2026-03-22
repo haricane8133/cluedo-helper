@@ -1,0 +1,7 @@
+![Homepage](/screenshots/1-homepage.png)
+![Gathering Details](/screenshots/2-gatherdetails.png)
+![Your Turn](/screenshots/3-yourturn.png)
+![You Prove](/screenshots/4-youprove.png)
+![Timeline View](/screenshots/5-timeline.png)
+![Detective View](/screenshots/6-detectiveview.png)
+![Game Over](/screenshots/7-warrant.png)

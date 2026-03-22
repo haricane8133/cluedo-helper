@@ -1,6 +1,10 @@
 # Cluedo Helper
 
-A static React web app for tracking a live game of Cluedo and narrowing the case using deduction, proof history, and turn-by-turn reasoning.
+A Sherlock themed static PWA React web app for tracking and solving a live game of Cluedo and narrowing the case using deduction, proof history, and turn-by-turn reasoning.
+
+Use this instead of a notepad to WIN ALL THE TIME!
+
+> Note: I created this project several years ago as a phone app with Native Script and Angular, when I was not a [Git Wiz](https://medium.com/@hari.r.nallan/scm-and-the-quest-for-perfect-history-ee9f72d8d641). Now, I used AI to ressurect this old app into a React based webpage with some new features.
 
 ## Features
 
@@ -13,10 +17,10 @@ A static React web app for tracking a live game of Cluedo and narrowing the case
 
 ## Screenshots
 
-- `[Home screen screenshot here]`
-- `[Game board screenshot here]`
-- `[Detective view screenshot here]`
-- `[Solved warrant / suspect view screenshot here]`
+![Homepage](/screenshots/1-homepage.png)
+![Detective View](/screenshots/6-detectiveview.png)
+
+Check more screenshots [here](/screenshots/README.md)
 
 ## Local development
 
@@ -38,14 +42,6 @@ This repository is configured for deployment at:
 
 `https://haricane8133.github.io/cluedo-helper`
 
-One-time setup:
-
-1. Push the repository to GitHub.
-2. In GitHub, open `Settings -> Pages`.
-3. Under `Build and deployment`, choose `Source: Deploy from a branch`.
-4. Select the `gh-pages` branch and `/ (root)` folder.
-5. Save the settings.
-
 Deploy:
 
 ```bash
@@ -54,12 +50,6 @@ npm run deploy
 
 That command builds the app and publishes the `dist/` output to the `gh-pages` branch.
 
-## Tech
-
-- React 18
-- TypeScript
-- Webpack
-- React Router
 
 ## Author
 

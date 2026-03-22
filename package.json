@@ -2,7 +2,7 @@
   "name": "cluedo-helper",
   "version": "2.0.0",
   "private": true,
-  "description": "Static React web app for tracking and solving Cluedo games",
+  "description": "Sherlock themed end to end Clue Board game notes taker, tracker and solver",
   "license": "Apache-2.0",
   "homepage": "https://haricane8133.github.io/cluedo-helper",
   "repository": {

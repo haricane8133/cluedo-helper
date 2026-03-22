@@ -41,7 +41,7 @@ export const HomePage = () => {
       <section className="hero-center">
         <div className="panel strong setup-card stack" style={{ width: "min(560px, 100%)" }}>
           <p className="subtle accent-font">Board-side deduction assistant</p>
-          <h1 className="headline">Track every clue without losing the case.</h1>
+          <h1 className="headline">Track every clue without losing Clue.</h1>
           <p className="subtle">
             Keep the game board in front of you, feed each suggestion and proof into the app, and let the solver narrow
             the suspect, weapon, and room.

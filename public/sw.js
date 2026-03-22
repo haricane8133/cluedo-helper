@@ -1,11 +1,12 @@
 const CACHE_NAME = "cluedo-helper-pwa-v1";
+const BASE_PATH = new URL(self.registration.scope).pathname;
 const APP_SHELL = [
-  "./",
-  "./index.html",
-  "./manifest.webmanifest",
-  "./icon.svg",
-  "./icon-maskable.svg",
-  "./apple-touch-icon.png"
+  BASE_PATH,
+  `${BASE_PATH}index.html`,
+  `${BASE_PATH}manifest.webmanifest`,
+  `${BASE_PATH}icon.svg`,
+  `${BASE_PATH}icon-maskable.svg`,
+  `${BASE_PATH}apple-touch-icon.png`
 ];
 
 self.addEventListener("install", (event) => {
@@ -36,7 +37,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      caches.match("./index.html").then((cached) => cached || fetch(request).catch(() => caches.match("./")))
+      caches.match(`${BASE_PATH}index.html`).then((cached) => cached || fetch(request).catch(() => caches.match(BASE_PATH)))
     );
     return;
   }
