@@ -6,6 +6,10 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 module.exports = (env, argv) => {
   const mode = argv.mode || "development";
   const isProduction = mode === "production";
+  const homepage = process.env.npm_package_homepage || "";
+  const publicPath = isProduction && homepage
+    ? `${new URL(homepage).pathname.replace(/\/$/, "")}/`
+    : "";
 
   return {
     mode,
@@ -13,7 +17,7 @@ module.exports = (env, argv) => {
     output: {
       path: path.resolve(__dirname, "dist"),
       filename: isProduction ? "assets/[name].[contenthash:8].js" : "assets/[name].js",
-      publicPath: "",
+      publicPath,
       clean: true
     },
     resolve: {
@@ -42,10 +46,12 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new webpack.DefinePlugin({
-        "process.env.NODE_ENV": JSON.stringify(mode)
+        "process.env.NODE_ENV": JSON.stringify(mode),
+        "process.env.PUBLIC_URL_BASE": JSON.stringify(publicPath)
       }),
       new HtmlWebpackPlugin({
-        template: path.resolve(__dirname, "public/index.html")
+        template: path.resolve(__dirname, "public/index.html"),
+        publicPath
       }),
       new CopyWebpackPlugin({
         patterns: [

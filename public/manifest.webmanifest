@@ -2,7 +2,7 @@
   "name": "Cluedo Helper",
   "short_name": "Cluedo Helper",
   "description": "A static deduction assistant for tracking Cluedo turns and solving the case.",
-  "start_url": ".",
+  "start_url": "./",
   "scope": ".",
   "display": "standalone",
   "background_color": "#0a0907",

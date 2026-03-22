@@ -62,10 +62,13 @@ export const TAB_LABELS: Record<GameTab, string> = {
   audit: "Timeline"
 };
 
-export const LOGO_IMAGE_PATH = "Assets/Wide310x150Logo.scale-200.png";
-export const PLAY_ICON_PATH = "Assets/play_google_icon.png";
-export const QUESTION_CARD_IMAGE_PATH = "Assets/Cluedo Cards/question.jpg";
-export const QUESTION_TOKEN_IMAGE_PATH = "Assets/Cluedo Tokens/question.jpg";
+const PUBLIC_URL_BASE = process.env.PUBLIC_URL_BASE ?? "";
+const withPublicPath = (assetPath: string): string => `${PUBLIC_URL_BASE}${assetPath}`;
+
+export const LOGO_IMAGE_PATH = withPublicPath("Assets/Wide310x150Logo.scale-200.png");
+export const PLAY_ICON_PATH = withPublicPath("Assets/play_google_icon.png");
+export const QUESTION_CARD_IMAGE_PATH = withPublicPath("Assets/Cluedo Cards/question.jpg");
+export const QUESTION_TOKEN_IMAGE_PATH = withPublicPath("Assets/Cluedo Tokens/question.jpg");
 
 export const getCardDefinition = (cardId: CardId): CardDefinition => CARD_DEFINITION_MAP[cardId];
 
@@ -74,10 +77,10 @@ export const getCardsForCategory = (category: CardCategory): CardDefinition[] =>
 
 export const getCardImagePath = (cardId: CardId): string => {
   const card = getCardDefinition(cardId);
-  return `Assets/Cluedo Cards/${card.assetCode}.jpg`;
+  return withPublicPath(`Assets/Cluedo Cards/${card.assetCode}.jpg`);
 };
 
 export const getTokenImagePath = (cardId: CardId): string => {
   const card = getCardDefinition(cardId);
-  return `Assets/Cluedo Tokens/${card.assetCode}.jpg`;
+  return withPublicPath(`Assets/Cluedo Tokens/${card.assetCode}.jpg`);
 };

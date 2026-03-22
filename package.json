@@ -4,11 +4,18 @@
   "private": true,
   "description": "Static React web app for tracking and solving Cluedo games",
   "license": "Apache-2.0",
+  "homepage": "https://haricane8133.github.io/cluedo-helper",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/haricane8133/cluedo-helper.git"
+  },
   "scripts": {
     "dev": "webpack serve --mode development",
     "start": "webpack serve --mode development",
     "build": "webpack --mode production",
-    "test:engine": "tsc -p tsconfig.engine-tests.json && node --test dist-tests/tests/engine.test.js"
+    "test:engine": "tsc -p tsconfig.engine-tests.json && node --test dist-tests/tests/engine.test.js",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -26,6 +33,7 @@
     "typescript": "^5.6.3",
     "webpack": "^5.94.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "webpack-dev-server": "^5.1.0",
+    "gh-pages": "^6.2.0"
   }
 }

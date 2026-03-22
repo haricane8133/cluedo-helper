@@ -18,15 +18,13 @@ export const PageChrome = ({ background, actions, children }: PropsWithChildren<
     <main className="page-content">{children}</main>
     <footer className="page-footer">
       <span>
-        Created by {" "}
-        <a href="https://github.com/haricane8133" target="_blank" rel="noreferrer">
-          Hari Rajesh (@haricane8133)
+        Open-sourced by {" "}
+        <a href="https://www.linkedin.com/in/haricane8133/" target="_blank" rel="noreferrer">
+          Hari Rajesh
         </a>
-      </span>
-      <span>
-        Repo: {" "}
-        <a href="https://github.com/haricane8133/cluedohelper" target="_blank" rel="noreferrer">
-          github.com/haricane8133/cluedohelper
+        {" "} @ {" "}
+        <a href="https://github.com/haricane8133/cluedo-helper" target="_blank" rel="noreferrer">
+          haricane8133/cluedo-helper
         </a>
       </span>
     </footer>

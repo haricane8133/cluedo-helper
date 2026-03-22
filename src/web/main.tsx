@@ -17,7 +17,7 @@ createRoot(container).render(
 
 if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch((error) => {
+    navigator.serviceWorker.register(`${process.env.PUBLIC_URL_BASE ?? ""}sw.js`).catch((error) => {
       console.error("Service worker registration failed:", error);
     });
   });

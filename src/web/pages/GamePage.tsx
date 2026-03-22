@@ -4,6 +4,7 @@ import { useDismissibleLayer } from "@/app/useDismissibleLayer";
 import { useAppActions, useAppState } from "@/app/AppContext";
 import {
   CARD_DEFINITIONS,
+  PLAY_ICON_PATH,
   QUESTION_TOKEN_IMAGE_PATH,
   TAB_LABELS,
   getCardDefinition,
@@ -374,7 +375,7 @@ export const GamePage = () => {
         {game.selectedTab === "audit" && renderAuditView()}
       </section>
       <button className="fab" onClick={actions.startTurn} aria-label={game.solutionReady ? "Show solved suspect view" : "Start the next turn"} disabled={Boolean(turnDraft || manualEdit)}>
-        <img src="Assets/play_google_icon.png" alt="Play" />
+        <img src={PLAY_ICON_PATH} alt="Play" />
       </button>
     </div>
   );
