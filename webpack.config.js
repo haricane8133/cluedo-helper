@@ -1,4 +1,5 @@
 const path = require("path");
+const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 
@@ -40,11 +41,15 @@ module.exports = (env, argv) => {
       ]
     },
     plugins: [
+      new webpack.DefinePlugin({
+        "process.env.NODE_ENV": JSON.stringify(mode)
+      }),
       new HtmlWebpackPlugin({
         template: path.resolve(__dirname, "public/index.html")
       }),
       new CopyWebpackPlugin({
         patterns: [
+          { from: path.resolve(__dirname, "public"), to: ".", globOptions: { ignore: ["**/index.html"] } },
           { from: path.resolve(__dirname, "src/Assets"), to: "Assets" },
           { from: path.resolve(__dirname, "src/fonts"), to: "fonts" }
         ]
