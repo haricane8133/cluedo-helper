@@ -1,29 +1,25 @@
 {
-    "compilerOptions": {
-        "module": "commonjs",
-        "target": "es5",
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true,
-        "noEmitHelpers": true,
-        "noEmitOnError": true,
-        "skipLibCheck": true,
-        "lib": [
-            "es6",
-            "dom",
-            "es2015.iterable"
-        ],
-        "baseUrl": ".",
-        "paths": {
-            "~/*": [
-                "src/*"
-            ],
-            "*": [
-                "./node_modules/*"
-            ]
-        }
-    },
-    "exclude": [
-        "node_modules",
-        "platforms"
-    ]
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/web/*"]
+    }
+  },
+  "include": ["src/web/**/*", "webpack.config.js"],
+  "exclude": ["dist", "node_modules", "platforms"]
 }
