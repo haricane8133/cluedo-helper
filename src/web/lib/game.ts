@@ -15,6 +15,7 @@ import type {
   CardCategory,
   CardId,
   CardState,
+  DetectiveKnowledgeSummary,
   GameState,
   HistoryState,
   ManualEditDraft,
@@ -23,7 +24,10 @@ import type {
   PlayerState,
   ProofRecord,
   SetupDraft,
-  TurnDraft
+  TurnDraft,
+  UserExposureCardSummary,
+  UserExposureSummary,
+  UserExposureViewerSummary
 } from "./types";
 
 export const ENVELOPE_OWNER_ID = "__envelope__" as const;
@@ -79,6 +83,9 @@ const normalizePlayerIdOrder = (playerIds: PlayerId[], players: PlayerState[]): 
 
 const getCardNamesText = (cardIds: CardId[]): string =>
   cardIds.map((cardId) => getCardDefinition(cardId).name).join(", ");
+
+const createCandidateKey = (cardIds: CardId[]): string =>
+  [...cardIds].sort((left, right) => getCardDefinition(left).order - getCardDefinition(right).order).join("|");
 
 const dedupeSequentialStrings = (values: string[]): string[] =>
   values.filter((value, index) => value.trim().length > 0 && value !== values[index - 1]);
@@ -360,7 +367,10 @@ const setOwnerDirect = (game: GameState, cardId: CardId, ownerId: OwnerId): bool
 
   if (ownerId === ENVELOPE_OWNER_ID) {
     const existingEnvelopeCard = getEnvelopeCardIdForCategory(game, getCardDefinition(cardId).category);
-    invariant(!existingEnvelopeCard || existingEnvelopeCard === cardId, "Only one card per category can be in the envelope.");
+    invariant(
+      !existingEnvelopeCard || existingEnvelopeCard === cardId,
+      `${getCardDefinition(existingEnvelopeCard ?? cardId).name} is already locked into the envelope for this category, so ${getCardDefinition(cardId).name} cannot also be placed there.`
+    );
     card.ownerId = ENVELOPE_OWNER_ID;
     card.notOwnerIds = game.players.map((player) => player.id);
     return true;
@@ -462,7 +472,7 @@ const runProofDeductions = (game: GameState): void => {
           appendAuditEntry(
             game,
             "deduction",
-            `Trick 2 resolved: ${getPlayer(game, proof.playerId).name} must have ${getCardDefinition(resolvedCardId).name}`,
+            `${getPlayer(game, proof.playerId).name} must have ${getCardDefinition(resolvedCardId).name}`,
             `${getPlayer(game, proof.playerId).name} previously proved one of ${getCardNamesText(proof.candidateCardIds)}. Later eliminations left only ${getCardDefinition(resolvedCardId).name} as a valid option.`
           );
           changed = true;
@@ -573,6 +583,114 @@ export const getPlayerHandView = (game: GameState, playerId: PlayerId): { knownC
   };
 };
 
+export const getKnownNotOwnedUserCardIdsForViewer = (game: GameState, viewerId: PlayerId): CardId[] => {
+  const cardIds = new Set<CardId>();
+
+  game.userExposureEvents.forEach((event) => {
+    if (event.kind !== "not-owner" || event.viewerId !== viewerId || !event.cardId) {
+      return;
+    }
+
+    cardIds.add(event.cardId);
+  });
+
+  return [...cardIds].sort((left, right) => getCardDefinition(left).order - getCardDefinition(right).order);
+};
+
+export const getUserExposureSummary = (game: GameState): UserExposureSummary => {
+  const userCardIds = getKnownOwnedCardIds(game, game.userPlayerId);
+  const otherPlayers = game.players.filter((player) => player.id !== game.userPlayerId);
+  const byViewerMap = new Map<PlayerId, { exactCardIds: Set<CardId>; publicExposureCounts: Map<CardId, number> }>();
+  const byCardMap = new Map<CardId, { exactViewerIds: Set<PlayerId>; publicExposureTurnKeys: Set<string> }>();
+
+  otherPlayers.forEach((player) => {
+    byViewerMap.set(player.id, { exactCardIds: new Set(), publicExposureCounts: new Map() });
+  });
+
+  userCardIds.forEach((cardId) => {
+    byCardMap.set(cardId, { exactViewerIds: new Set(), publicExposureTurnKeys: new Set() });
+  });
+
+  for (const event of game.userExposureEvents) {
+    const viewer = byViewerMap.get(event.viewerId);
+    if (!viewer) {
+      continue;
+    }
+
+    if (event.kind === "exact" && event.cardId && byCardMap.has(event.cardId)) {
+      viewer.exactCardIds.add(event.cardId);
+      byCardMap.get(event.cardId)?.exactViewerIds.add(event.viewerId);
+      continue;
+    }
+
+    if (event.kind === "public" && event.cardId && byCardMap.has(event.cardId)) {
+      const nextCount = (viewer.publicExposureCounts.get(event.cardId) ?? 0) + 1;
+      viewer.publicExposureCounts.set(event.cardId, nextCount);
+      byCardMap.get(event.cardId)?.publicExposureTurnKeys.add(event.turnKey ?? `${event.turnIndex}:${event.viewerId}:${event.cardId}`);
+    }
+  }
+
+  const byViewer: UserExposureViewerSummary[] = otherPlayers.map((player) => {
+    const viewer = byViewerMap.get(player.id)!;
+    const exactCardIds = [...viewer.exactCardIds].sort((left, right) => getCardDefinition(left).order - getCardDefinition(right).order);
+    const publicExposureCounts = [...viewer.publicExposureCounts.entries()]
+      .map(([cardId, count]) => ({ cardId, count }))
+      .sort((left, right) => getCardDefinition(left.cardId).order - getCardDefinition(right.cardId).order);
+
+    return {
+      viewerId: player.id,
+      exactCardIds,
+      publicExposureCounts
+    };
+  });
+
+  const byCard: UserExposureCardSummary[] = userCardIds.map((cardId) => {
+    const summary = byCardMap.get(cardId)!;
+    return {
+      cardId,
+      exactViewerIds: normalizePlayerIdOrder([...summary.exactViewerIds], game.players),
+      exactRevealCount: summary.exactViewerIds.size,
+      publicExposureTurnCount: summary.publicExposureTurnKeys.size
+    };
+  });
+
+  return { byViewer, byCard };
+};
+
+export const getDetectiveKnowledgeSummary = (game: GameState, detectiveId: PlayerId): DetectiveKnowledgeSummary => {
+  const exposureSummary = getUserExposureSummary(game);
+  const viewerSummary = exposureSummary.byViewer.find((entry) => entry.viewerId === detectiveId);
+  const proofMemories = getActiveProofRecords(game)
+    .filter((proof) => proof.playerId === detectiveId)
+    .map((proof) => ({
+      candidateCardIds: proof.candidateCardIds.filter((cardId) => {
+        const card = game.cards[cardId];
+        return card.ownerId === detectiveId || (card.ownerId === null && !card.notOwnerIds.includes(detectiveId));
+      })
+    }));
+
+  return {
+    detectiveId,
+    exactCardIds: viewerSummary?.exactCardIds ?? [],
+    publicExposureCounts: viewerSummary?.publicExposureCounts ?? [],
+    proofMemories,
+    knownNotOwnerCardIds: getKnownNotOwnedUserCardIdsForViewer(game, detectiveId)
+  };
+};
+
+export const getDetectiveKnowledgeSummaries = (game: GameState): DetectiveKnowledgeSummary[] =>
+  game.players.map((player) => getDetectiveKnowledgeSummary(game, player.id));
+
+export const getUserExposureCompactByCategory = (game: GameState): Record<CardCategory, UserExposureCardSummary[]> => {
+  const summary = getUserExposureSummary(game);
+
+  return {
+    suspect: summary.byCard.filter((entry) => getCardDefinition(entry.cardId).category === "suspect"),
+    weapon: summary.byCard.filter((entry) => getCardDefinition(entry.cardId).category === "weapon"),
+    room: summary.byCard.filter((entry) => getCardDefinition(entry.cardId).category === "room")
+  };
+};
+
 export const canCardPossiblyBelongToPlayer = (game: GameState, cardId: CardId, playerId: PlayerId): boolean => {
   const card = getCardState(game, cardId);
 
@@ -614,7 +732,7 @@ const recordProof = (game: GameState, playerId: PlayerId, candidateCardIds: Card
   appendAuditEntry(
     game,
     "proof",
-    `Trick 2 noted: ${getPlayer(game, playerId).name} has one of ${getCardNamesText(uniqueCandidates)}`,
+    `${getPlayer(game, playerId).name} has one of ${getCardNamesText(uniqueCandidates)}`,
     `${getPlayer(game, playerId).name} proved the suggestion, but the exact card is still unknown. This proof memory stays active until later eliminations reduce it to one card.`
   );
 };
@@ -633,6 +751,133 @@ export const getActiveProofRecords = (game: GameState): ProofRecord[] =>
 
     return viableCardIds.length > 1;
   });
+
+const recordUserExposureExact = (game: GameState, viewerId: PlayerId, shownCardId: CardId): boolean => {
+  if (viewerId === game.userPlayerId || game.cards[shownCardId].ownerId !== game.userPlayerId) {
+    return false;
+  }
+
+  const exists = game.userExposureEvents.some((event) =>
+    event.kind === "exact" && event.viewerId === viewerId && event.cardId === shownCardId
+  );
+
+  if (exists) {
+    return false;
+  }
+
+  game.userExposureEvents.push({
+    id: `user-exact:${viewerId}:${shownCardId}:${game.userExposureEvents.length}:${Date.now()}`,
+    viewerId,
+    sourcePlayerId: viewerId,
+    turnIndex: game.turnIndex,
+    kind: "exact",
+    cardId: shownCardId
+  });
+  return true;
+};
+
+const recordUserExposurePublic = (game: GameState, viewerId: PlayerId, sourcePlayerId: PlayerId, cardId: CardId): boolean => {
+  if (viewerId === game.userPlayerId) {
+    return false;
+  }
+
+  if (game.cards[cardId].ownerId !== game.userPlayerId) {
+    return false;
+  }
+
+  const turnKey = `${game.turnIndex}:${viewerId}:${cardId}`;
+  const exists = game.userExposureEvents.some((event) =>
+    event.kind === "public" &&
+    event.viewerId === viewerId &&
+    event.cardId === cardId &&
+    event.turnKey === turnKey
+  );
+
+  if (exists) {
+    return false;
+  }
+
+  game.userExposureEvents.push({
+    id: `user-public:${viewerId}:${cardId}:${turnKey}:${game.userExposureEvents.length}:${Date.now()}`,
+    viewerId,
+    sourcePlayerId,
+    turnIndex: game.turnIndex,
+    turnKey,
+    kind: "public",
+    cardId
+  });
+  return true;
+};
+
+const recordUserExposureNotOwner = (game: GameState, viewerId: PlayerId, sourcePlayerId: PlayerId, cardId: CardId): boolean => {
+  if (viewerId === game.userPlayerId) {
+    return false;
+  }
+
+  if (game.cards[cardId].ownerId === game.userPlayerId) {
+    return false;
+  }
+
+  const exists = game.userExposureEvents.some((event) =>
+    event.kind === "not-owner" && event.viewerId === viewerId && event.cardId === cardId
+  );
+
+  if (exists) {
+    return false;
+  }
+
+  game.userExposureEvents.push({
+    id: `user-not-owner:${viewerId}:${cardId}:${game.userExposureEvents.length}:${Date.now()}`,
+    viewerId,
+    sourcePlayerId,
+    turnIndex: game.turnIndex,
+    kind: "not-owner",
+    cardId
+  });
+  return true;
+};
+
+const applyUserExposureFromReveal = (game: GameState, askingPlayerId: PlayerId, shownCardId: CardId, suggestedCardIds: CardId[]): void => {
+  const exactAdded = recordUserExposureExact(game, askingPlayerId, shownCardId);
+  const userOwnedSuggestedCardIds = suggestedCardIds
+    .filter((cardId) => game.cards[cardId].ownerId === game.userPlayerId)
+    .sort((left, right) => getCardDefinition(left).order - getCardDefinition(right).order);
+  const publicExposureChanges = new Map<CardId, PlayerId[]>();
+
+  game.players
+    .filter((player) => player.id !== game.userPlayerId && player.id !== askingPlayerId)
+    .forEach((player) => {
+      userOwnedSuggestedCardIds.forEach((cardId) => {
+        const changed = recordUserExposurePublic(game, player.id, askingPlayerId, cardId);
+        if (!changed) {
+          return;
+        }
+
+        const viewers = publicExposureChanges.get(cardId) ?? [];
+        viewers.push(player.id);
+        publicExposureChanges.set(cardId, viewers);
+      });
+    });
+
+  if (!exactAdded && publicExposureChanges.size === 0) {
+    return;
+  }
+
+  const exactLine = exactAdded
+    ? `${getPlayer(game, askingPlayerId).name} now knows you have ${getCardDefinition(shownCardId).name}.`
+    : null;
+  const publicLines = [...publicExposureChanges.entries()].map(([cardId, viewerIds]) =>
+    `${getPlayerNamesText(game, viewerIds)} publicly saw ${getCardDefinition(cardId).name} in this proof.`
+  );
+  const reasoningParts = [exactLine, ...publicLines].filter(Boolean);
+
+  appendAuditEntry(
+    game,
+    "proof",
+    `Exposure memory updated from your proof to ${getPlayer(game, askingPlayerId).name}`,
+    reasoningParts.join(" ")
+  );
+};
 
 export const applyProofShown = (game: GameState, provingPlayerId: PlayerId, shownCardId: CardId): void => {
   assignOwner(game, shownCardId, provingPlayerId, {
@@ -658,7 +903,7 @@ export const applyProofYes = (game: GameState, provingPlayerId: PlayerId, sugges
     const resolvedCardId = viableCardIds[0];
     assignOwner(game, resolvedCardId, provingPlayerId, {
       kind: "deduction",
-      summary: `Trick 1: ${getPlayer(game, provingPlayerId).name} must have ${getCardDefinition(resolvedCardId).name}`,
+      summary: `${getPlayer(game, provingPlayerId).name} must have ${getCardDefinition(resolvedCardId).name}`,
       reasoning: `${getPlayer(game, provingPlayerId).name} proved ${getCardNamesText(suggestedCardIds)}. The other suggested cards were already impossible for them, so ${getCardDefinition(resolvedCardId).name} is the only remaining option.`
     });
     return;
@@ -698,7 +943,7 @@ export const createGameFromSetup = (setupDraft: SetupDraft): GameState => {
   }));
 
   const cards = Object.fromEntries(
-    CARD_DEFINITIONS.map((card) => [card.id, { id: card.id, ownerId: null, notOwnerIds: [] }])
+    CARD_DEFINITIONS.map((card) => [card.id, { id: card.id, ownerId: null, notOwnerIds: [], suggestedCount: 0 }])
   ) as Record<CardId, CardState>;
 
   const game: GameState = {
@@ -709,6 +954,7 @@ export const createGameFromSetup = (setupDraft: SetupDraft): GameState => {
     turnIndex: 0,
     cards,
     proofs: [],
+    userExposureEvents: [],
     auditLog: [],
     selectedTab: DEFAULT_TAB,
     solutionReady: false,
@@ -747,6 +993,12 @@ export const createTurnDraft = (game: GameState): TurnDraft => ({
   userMessage: "",
   eventLog: []
 });
+
+const recordSuggestionCounts = (game: GameState, suggestedCardIds: CardId[]): void => {
+  suggestedCardIds.forEach((cardId) => {
+    game.cards[cardId].suggestedCount += 1;
+  });
+};
 
 export const toggleSuggestedCard = (draft: TurnDraft, cardId: CardId): TurnDraft => {
   const exists = draft.suggestedCardIds.includes(cardId);
@@ -802,12 +1054,13 @@ export const advanceTurnFlow = (draft: TurnDraft): TurnDraft => {
       ...draft,
       step: "user-prove",
       currentProverId: nextProver.id,
+      shownCardId: matchingUserCards.length === 1 ? matchingUserCards[0]! : null,
       userMessage:
         matchingUserCards.length === 0
           ? "You don't have a card to prove. Continue to the next detective."
           : matchingUserCards.length === 1
-            ? "Show this card to the detective who asked."
-            : "Show one of these cards to the detective who asked."
+            ? "Confirm the card you showed to the detective who asked."
+            : "Choose the card you showed to the detective who asked."
     };
   }
 
@@ -820,18 +1073,35 @@ export const advanceTurnFlow = (draft: TurnDraft): TurnDraft => {
 };
 
 export const continueAfterUserProof = (draft: TurnDraft): TurnDraft | null => {
+  const askingPlayer = getActivePlayer(draft.game);
   const matchingUserCards = draft.suggestedCardIds.filter(
     (cardId) => draft.game.cards[cardId].ownerId === draft.game.userPlayerId
   );
+  const nonOwnedSuggestedCardIds = draft.suggestedCardIds.filter(
+    (cardId) => draft.game.cards[cardId].ownerId !== draft.game.userPlayerId
+  );
 
   if (matchingUserCards.length > 0) {
-    recordTurnEvent(
-      draft,
-      matchingUserCards.length === 1
-        ? `You proved the suggestion with ${getCardDefinition(matchingUserCards[0]!).name}.`
-        : `You proved the suggestion with one of ${getTurnSuggestionText(matchingUserCards)}.`
-    );
+    const selectedShownCardId = matchingUserCards.length === 1 ? matchingUserCards[0]! : draft.shownCardId;
+    invariant(selectedShownCardId && matchingUserCards.includes(selectedShownCardId), "Choose the card you showed before continuing.");
+    const shownCardId = selectedShownCardId as CardId;
+
+    applyUserExposureFromReveal(draft.game, askingPlayer.id, shownCardId, draft.suggestedCardIds);
+    recordTurnEvent(draft, `You proved the suggestion with ${getCardDefinition(shownCardId).name}.`);
     return null;
+  }
+
+  const notOwnerLearnedCardIds = nonOwnedSuggestedCardIds.filter((cardId) =>
+    recordUserExposureNotOwner(draft.game, askingPlayer.id, askingPlayer.id, cardId)
+  );
+
+  if (notOwnerLearnedCardIds.length > 0) {
+    appendAuditEntry(
+      draft.game,
+      "proof",
+      `Exposure memory updated from your failed proof to ${askingPlayer.name}`,
+      `${askingPlayer.name} now knows you do not have ${getCardNamesText(notOwnerLearnedCardIds)}.`
+    );
   }
 
   recordTurnEvent(draft, "You could not prove the suggestion.");
@@ -913,13 +1183,35 @@ export const completeShownCard = (draft: TurnDraft): void => {
 export const commitTurn = (game: GameState, draft?: TurnDraft | null): GameState => {
   const next = cloneGame(game);
   const completedTurnIndex = next.turnIndex;
+  const solutionWasReady = next.solutionReady;
+
+  if (draft?.suggestedCardIds.length === 3) {
+    recordSuggestionCounts(next, draft.suggestedCardIds);
+  }
 
   next.turnIndex = (next.turnIndex + 1) % next.players.length;
   next.lastCommittedAt = nowIso();
   syncGameState(next);
 
+  if (shouldShowSolutionScreen(next)) {
+    next.selectedTab = "suspect";
+  }
+
   const audit = buildTurnCommitAudit(game, draft, getActivePlayer(next).name);
   appendAuditEntry(next, "turn", audit.summary, audit.reasoning, completedTurnIndex);
+
+  if (!solutionWasReady && next.solutionReady) {
+    const solutionText = getSolutionCardIds(next).map((cardId) => getCardDefinition(cardId).name).join(", ");
+    appendAuditEntry(
+      next,
+      "deduction",
+      `Warrant ready: ${solutionText}`,
+      shouldShowSolutionScreen(next)
+        ? `The full warrant is now confirmed, and it is your turn to make the accusation.`
+        : `The full warrant is now confirmed. Keep tracking turns until it comes back to you.`
+    );
+  }
+
   return next;
 };
 
@@ -983,6 +1275,16 @@ export const shouldShowSolutionScreen = (game: GameState): boolean =>
 export const getSolutionCardIds = (game: GameState): CardId[] =>
   CARD_CATEGORIES.map((category) => getEnvelopeCardIdForCategory(game, category)).filter(Boolean) as CardId[];
 
+export const getExposureLabel = (game: GameState, viewerIds: PlayerId[]): string =>
+  viewerIds.length > 0
+    ? viewerIds.map((playerId) => getPlayer(game, playerId).name).join(", ")
+    : "None";
+
+export const getPlayerNamesText = (game: GameState, playerIds: PlayerId[]): string =>
+  playerIds.length > 0
+    ? normalizePlayerIdOrder(playerIds, game.players).map((playerId) => getPlayer(game, playerId).name).join(", ")
+    : "None";
+
 export const getGameSummaryLabel = (game: GameState): string => {
   if (shouldShowSolutionScreen(game)) {
     return "The deduction is complete. Make the accusation on your turn.";
@@ -1032,11 +1334,49 @@ const summarizeBoardDiff = (previous: GameState | null, current: GameState): str
       lines.push(`Proof memory stored: ${getPlayer(current, proof.playerId).name} has one of ${getCardNamesText(proof.candidateCardIds)}`);
     });
 
-  if (lines.length > 8) {
-    return [...lines.slice(0, 8), `...and ${lines.length - 8} more board changes.`];
+  const previousExposureIds = new Set(previous.userExposureEvents.map((event) => event.id));
+  const newExposureEvents = current.userExposureEvents.filter((event) => !previousExposureIds.has(event.id));
+
+  newExposureEvents
+    .filter((event) => event.kind === "exact" && event.cardId)
+    .forEach((event) => {
+      lines.push(`${getPlayer(current, event.viewerId).name} has definitely seen ${getCardDefinition(event.cardId!).name}`);
+    });
+
+  const publicExposureLines = new Map<string, { cardId: CardId; viewerIds: PlayerId[] }>();
+  newExposureEvents
+    .filter((event) => event.kind === "public" && event.cardId)
+    .forEach((event) => {
+      const key = event.turnKey ?? `${event.turnIndex}:${event.cardId}`;
+      const existing = publicExposureLines.get(key);
+      if (existing) {
+        existing.viewerIds.push(event.viewerId);
+        return;
+      }
+
+      publicExposureLines.set(key, {
+        cardId: event.cardId as CardId,
+        viewerIds: [event.viewerId]
+      });
+    });
+
+  publicExposureLines.forEach(({ cardId, viewerIds }) => {
+    lines.push(`${getCardDefinition(cardId).name}: public proof exposure for ${getPlayerNamesText(current, viewerIds)}`);
+  });
+
+  newExposureEvents
+    .filter((event) => event.kind === "not-owner" && event.cardId)
+    .forEach((event) => {
+      lines.push(`${getPlayer(current, event.viewerId).name} now knows you do not have ${getCardDefinition(event.cardId!).name}`);
+    });
+
+  const dedupedLines = dedupeSequentialStrings(lines);
+
+  if (dedupedLines.length > 8) {
+    return [...dedupedLines.slice(0, 8), `...and ${dedupedLines.length - 8} more board changes.`];
   }
 
-  return lines;
+  return dedupedLines;
 };
 
 export const getAuditTimelineEntries = (history: HistoryState): AuditTimelineEntry[] => {

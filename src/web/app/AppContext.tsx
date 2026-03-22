@@ -232,6 +232,16 @@ const reducer = (state: AppState, action: Action): AppState => {
       if (!state.history.present || state.turnDraft || state.manualEdit) {
         return state;
       }
+      if (state.history.present.solutionReady) {
+        return {
+          ...state,
+          history: {
+            ...state.history,
+            present: setSelectedTab(state.history.present, "suspect")
+          },
+          exception: null
+        };
+      }
       return {
         ...state,
         turnDraft: createTurnDraft(state.history.present),

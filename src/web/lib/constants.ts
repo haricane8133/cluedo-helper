@@ -56,7 +56,7 @@ export const CATEGORY_LABELS: Record<CardCategory, string> = {
 };
 
 export const TAB_LABELS: Record<GameTab, string> = {
-  entity: "Entity View",
+  entity: "Card View",
   suspect: "Suspect View",
   detective: "Detective View",
   audit: "Timeline"

@@ -36,6 +36,7 @@ export interface CardState {
   id: CardId;
   ownerId: OwnerId | null;
   notOwnerIds: PlayerId[];
+  suggestedCount: number;
 }
 
 export interface ProofRecord {
@@ -43,6 +44,52 @@ export interface ProofRecord {
   playerId: PlayerId;
   candidateCardIds: CardId[];
 }
+export interface UserExposureEvent {
+  id: string;
+  viewerId: PlayerId;
+  sourcePlayerId: PlayerId;
+  turnIndex: number;
+  turnKey?: string;
+  kind: "exact" | "candidate" | "public" | "not-owner";
+  cardId?: CardId;
+  candidateCardIds?: CardId[];
+}
+
+export interface UserExposureViewerCount {
+  cardId: CardId;
+  count: number;
+}
+
+export interface UserExposureViewerSummary {
+  viewerId: PlayerId;
+  exactCardIds: CardId[];
+  publicExposureCounts: UserExposureViewerCount[];
+}
+
+export interface UserExposureCardSummary {
+  cardId: CardId;
+  exactViewerIds: PlayerId[];
+  exactRevealCount: number;
+  publicExposureTurnCount: number;
+}
+
+export interface UserExposureSummary {
+  byViewer: UserExposureViewerSummary[];
+  byCard: UserExposureCardSummary[];
+}
+
+export interface DetectiveProofMemorySummary {
+  candidateCardIds: CardId[];
+}
+
+export interface DetectiveKnowledgeSummary {
+  detectiveId: PlayerId;
+  exactCardIds: CardId[];
+  publicExposureCounts: UserExposureViewerCount[];
+  proofMemories: DetectiveProofMemorySummary[];
+  knownNotOwnerCardIds: CardId[];
+}
+
 
 export interface AuditEntry {
   id: string;
@@ -73,6 +120,7 @@ export interface GameState {
   turnIndex: number;
   cards: Record<CardId, CardState>;
   proofs: ProofRecord[];
+  userExposureEvents: UserExposureEvent[];
   auditLog: AuditEntry[];
   selectedTab: GameTab;
   solutionReady: boolean;

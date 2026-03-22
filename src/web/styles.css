@@ -290,9 +290,20 @@ select {
   background: rgba(82, 174, 98, 0.16);
 }
 
+.card-tile.resolved-envelope {
+  border-color: rgba(82, 174, 98, 0.72);
+  background: linear-gradient(180deg, rgba(82, 174, 98, 0.2), rgba(82, 174, 98, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(82, 174, 98, 0.18);
+}
+
 .card-tile.clickable,
 .status-card.clickable {
   cursor: pointer;
+}
+
+.status-card.selected {
+  border-color: rgba(82, 174, 98, 0.62);
+  background: rgba(82, 174, 98, 0.16);
 }
 
 .card-thumb {
@@ -388,6 +399,42 @@ select {
 
 .detective-card {
   grid-template-columns: 1fr;
+}
+
+.exposure-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.exposure-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.exposure-card {
+  grid-template-columns: 1fr;
+}
+
+.user-hand-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.user-exposure-card {
+  align-items: center;
+}
+
+.exposure-line {
+  align-items: flex-start;
+}
+
+.tag-success {
+  background: rgba(82, 174, 98, 0.22);
+  color: var(--text);
+}
+
+.tag-accent {
+  background: rgba(199, 161, 74, 0.22);
+  color: var(--text);
 }
 
 .thumb-only {

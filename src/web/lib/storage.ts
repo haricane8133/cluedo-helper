@@ -12,11 +12,49 @@ const normalizeGame = (game: GameState | null | undefined): GameState | null => 
     return null;
   }
 
+  const rawSelectedTab: unknown = (game as { selectedTab?: unknown }).selectedTab;
+
+  const normalizedSelectedTab: GameTab = rawSelectedTab === "warrant"
+    ? "suspect"
+    : isValidTab(rawSelectedTab) ? rawSelectedTab : DEFAULT_TAB;
+
   return {
     ...game,
     proofs: Array.isArray(game.proofs) ? game.proofs : [],
+    userExposureEvents: Array.isArray(game.userExposureEvents)
+      ? game.userExposureEvents.filter((event) => {
+          if (!event || typeof event !== "object") {
+            return false;
+          }
+
+          return typeof event.id === "string" &&
+            typeof event.viewerId === "string" &&
+            typeof event.sourcePlayerId === "string" &&
+            typeof event.turnIndex === "number" &&
+            (event.kind === "exact" || event.kind === "candidate" || event.kind === "public" || event.kind === "not-owner");
+        }).map((event) => ({
+          id: event.id,
+          viewerId: event.viewerId,
+          sourcePlayerId: event.sourcePlayerId,
+          turnIndex: event.turnIndex,
+          turnKey: typeof event.turnKey === "string" ? event.turnKey : undefined,
+          kind: event.kind,
+          cardId: typeof event.cardId === "string" ? event.cardId : undefined,
+          candidateCardIds: Array.isArray(event.candidateCardIds)
+            ? event.candidateCardIds.filter((cardId): cardId is string => typeof cardId === "string")
+            : undefined
+        }))
+      : [],
+    cards: Object.fromEntries(
+      Object.entries(game.cards).map(([cardId, card]) => [cardId, {
+        ...card,
+        suggestedCount: typeof (card as { suggestedCount?: unknown }).suggestedCount === "number"
+          ? (card as { suggestedCount: number }).suggestedCount
+          : 0
+      }])
+    ) as GameState["cards"],
     auditLog: Array.isArray(game.auditLog) ? game.auditLog : [],
-    selectedTab: isValidTab(game.selectedTab) ? game.selectedTab : DEFAULT_TAB,
+    selectedTab: normalizedSelectedTab,
     lastCommittedAt: game.lastCommittedAt ?? new Date().toISOString()
   };
 };

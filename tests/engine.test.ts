@@ -5,12 +5,16 @@ import {
   applyProofYes,
   applyProofShown,
   continueAfterProofNo,
+  continueAfterUserProof,
   commitTurn,
   createGameFromSetup,
   createTurnDraft,
+  setSelectedTab,
   getSetupStepErrors,
   getAuditTimelineEntries,
-  getEnvelopeCardIdForCategory
+  getEnvelopeCardIdForCategory,
+  getDetectiveKnowledgeSummary,
+  getUserExposureSummary
 } from "../src/web/lib/game";
 import type { HistoryState, SetupDraft } from "../src/web/lib/types";
 
@@ -32,7 +36,7 @@ const createSetup = (overrides: Partial<SetupDraft> = {}): SetupDraft => ({
   ...overrides
 });
 
-test("trick 2 memory resolves after later eliminations", () => {
+test("proof memory resolves after later eliminations", () => {
   const game = createGameFromSetup(createSetup());
   const ashaId = game.players[1]!.id;
   const nikhilId = game.players[2]!.id;
@@ -48,7 +52,7 @@ test("trick 2 memory resolves after later eliminations", () => {
   assert.equal(game.cards["room-2"].ownerId, ashaId);
   assert.equal(game.cards["suspect-2"].notOwnerIds.includes(ashaId), true);
   assert.equal(game.cards["weapon-2"].notOwnerIds.includes(ashaId), true);
-  assert.equal(game.auditLog.some((entry) => entry.summary.includes("Trick 2 resolved")), true);
+  assert.equal(game.auditLog.some((entry) => entry.summary.includes("must have")), true);
   assert.equal(game.proofs.length, 1);
 
   applyProofShown(game, nikhilId, "room-3");
@@ -81,6 +85,92 @@ test("turn timeline summarizes the turn event and the board changes it caused", 
   assert.equal(entries[0]!.changeLines.some((line) => line.includes("could not prove")), false);
   assert.equal(entries[0]!.changeLines.some((line) => line.includes("ruled out for Asha")), true);
   assert.equal(entries[1]!.title, "Setup");
+});
+
+test("detective knowledge summary includes exact sightings and proof memories", () => {
+  const game = createGameFromSetup(createSetup());
+  const ashaId = game.players[1]!.id;
+
+  applyProofNo(game, ashaId, ["suspect-2", "weapon-2", "room-2"]);
+  applyProofYes(game, ashaId, ["suspect-3", "weapon-3", "room-3"]);
+
+  const knowledge = getDetectiveKnowledgeSummary(game, ashaId);
+
+  assert.equal(knowledge.detectiveId, ashaId);
+  assert.ok(Array.isArray(knowledge.exactCardIds));
+  assert.ok(Array.isArray(knowledge.publicExposureCounts));
+  assert.ok(Array.isArray(knowledge.proofMemories));
+  assert.ok(Array.isArray(knowledge.knownNotOwnerCardIds));
+  assert.deepEqual(knowledge.proofMemories, [{ candidateCardIds: ["suspect-3", "weapon-3", "room-3"] }]);
+});
+
+test("failed user proof records cards the asking detective knows you do not have", () => {
+  const game = createGameFromSetup(createSetup());
+  const ashaId = game.players[1]!.id;
+
+  game.turnIndex = 1;
+  const draft = createTurnDraft(game);
+  draft.step = "user-prove";
+  draft.suggestedCardIds = ["suspect-2", "weapon-2", "room-2"];
+  draft.currentProverId = game.userPlayerId;
+
+  continueAfterUserProof(draft);
+
+  const knowledge = getDetectiveKnowledgeSummary(draft.game, ashaId);
+  assert.deepEqual(knowledge.knownNotOwnerCardIds, ["suspect-2", "weapon-2", "room-2"]);
+});
+
+test("two later no-proofs can place one suspect, one weapon, and one room into the envelope together", () => {
+  const game = createGameFromSetup(createSetup({
+    playerNames: ["Player1", "Player2", "Player3"],
+    selectedCardIds: ["suspect-0", "suspect-1", "weapon-0", "weapon-1", "room-0", "room-1"]
+  }));
+  const player2 = game.players[1]!.id;
+  const player3 = game.players[2]!.id;
+
+  applyProofNo(game, player2, ["suspect-5", "weapon-5", "room-8"]);
+  applyProofNo(game, player3, ["suspect-5", "weapon-5", "room-8"]);
+
+  assert.equal(game.cards["suspect-5"].ownerId, "__envelope__");
+  assert.equal(game.cards["weapon-5"].ownerId, "__envelope__");
+  assert.equal(game.cards["room-8"].ownerId, "__envelope__");
+});
+
+test("suspect tab is selected automatically when the solved turn comes back to the user", () => {
+  let game = setSelectedTab(createGameFromSetup(createSetup()), "audit");
+
+  game.cards["suspect-5"].ownerId = "__envelope__";
+  game.cards["weapon-5"].ownerId = "__envelope__";
+  game.cards["room-8"].ownerId = null;
+  game.cards["suspect-5"].notOwnerIds = game.players.map((player) => player.id);
+  game.cards["weapon-5"].notOwnerIds = game.players.map((player) => player.id);
+  game.cards["room-8"].notOwnerIds = game.players.map((player) => player.id);
+  game.turnIndex = 2;
+  game.solutionReady = false;
+
+  const draft = createTurnDraft(game);
+  const committed = commitTurn(draft.game, draft);
+
+  assert.equal(committed.solutionReady, true);
+  assert.equal(committed.selectedTab, "suspect");
+  assert.equal(committed.auditLog.some((entry) => entry.summary.startsWith("Warrant ready:")), true);
+});
+
+test("committed turns count how many times each card was suspected", () => {
+  const game = createGameFromSetup(createSetup());
+  const draft = createTurnDraft(game);
+  const playerTwo = game.players[1]!.id;
+
+  draft.step = "ask";
+  draft.suggestedCardIds = ["suspect-2", "weapon-2", "room-2"];
+  draft.currentProverId = playerTwo;
+
+  const committed = commitTurn(draft.game, draft);
+
+  assert.equal(committed.cards["suspect-2"].suggestedCount, 1);
+  assert.equal(committed.cards["weapon-2"].suggestedCount, 1);
+  assert.equal(committed.cards["room-2"].suggestedCount, 1);
+  assert.equal(committed.cards["suspect-3"].suggestedCount, 0);
 });
 
 test("setup step errors only show the current page requirements", () => {
@@ -124,4 +214,89 @@ test("envelope deduction closes a category once all detectives are ruled out", (
   assert.equal(getEnvelopeCardIdForCategory(game, "weapon"), "weapon-3");
   assert.equal(game.cards["weapon-3"].ownerId, "__envelope__");
   assert.equal(game.auditLog.some((entry) => entry.summary === "Revolver must be in the envelope"), true);
+});
+
+test("user proof records exact exposure and public proof counts for the user's own cards", () => {
+  const initial = createGameFromSetup(createSetup());
+  initial.turnIndex = 2;
+  const draft = createTurnDraft(initial);
+  const ashaId = initial.players[1]!.id;
+  const nikhilId = initial.players[2]!.id;
+
+  draft.step = "user-prove";
+  draft.suggestedCardIds = ["suspect-0", "weapon-4", "room-8"];
+  draft.currentProverId = initial.userPlayerId;
+  draft.shownCardId = "suspect-0";
+
+  const result = continueAfterUserProof(draft);
+  assert.equal(result, null);
+
+  const committed = commitTurn(draft.game, draft);
+  const exposure = getUserExposureSummary(committed);
+
+  assert.deepEqual(exposure.byViewer.find((entry) => entry.viewerId === nikhilId)?.exactCardIds, ["suspect-0"]);
+  assert.deepEqual(exposure.byViewer.find((entry) => entry.viewerId === nikhilId)?.publicExposureCounts, []);
+  assert.deepEqual(exposure.byViewer.find((entry) => entry.viewerId === ashaId)?.exactCardIds, []);
+  assert.deepEqual(exposure.byViewer.find((entry) => entry.viewerId === ashaId)?.publicExposureCounts, [{ cardId: "suspect-0", count: 1 }]);
+  assert.equal(exposure.byCard.find((entry) => entry.cardId === "suspect-0")?.exactRevealCount, 1);
+  assert.equal(exposure.byCard.find((entry) => entry.cardId === "suspect-0")?.publicExposureTurnCount, 1);
+
+  const history: HistoryState = {
+    past: [initial],
+    present: committed,
+    future: []
+  };
+  const entries = getAuditTimelineEntries(history);
+
+  assert.equal(entries[0]!.changeLines.some((line) => line.includes("Nikhil has definitely seen Miss Peacock")), true);
+  assert.equal(entries[0]!.changeLines.some((line) => line.includes("Miss Peacock: public proof exposure for Asha")), true);
+});
+
+test("duplicate user proofs do not duplicate exposure memory entries", () => {
+  const game = createGameFromSetup(createSetup());
+  game.turnIndex = 2;
+  const nikhilId = game.players[2]!.id;
+
+  const firstDraft = createTurnDraft(game);
+  firstDraft.step = "user-prove";
+  firstDraft.suggestedCardIds = ["suspect-0", "weapon-2", "room-8"];
+  firstDraft.currentProverId = game.userPlayerId;
+  firstDraft.shownCardId = "suspect-0";
+
+  const firstResult = continueAfterUserProof(firstDraft);
+  assert.equal(firstResult, null);
+  const exposureCountAfterFirstProof = firstDraft.game.userExposureEvents.length;
+
+  const secondDraft = createTurnDraft(firstDraft.game);
+  secondDraft.step = "user-prove";
+  secondDraft.suggestedCardIds = ["suspect-0", "weapon-2", "room-8"];
+  secondDraft.currentProverId = firstDraft.game.userPlayerId;
+  secondDraft.shownCardId = "suspect-0";
+
+  const secondResult = continueAfterUserProof(secondDraft);
+  assert.equal(secondResult, null);
+  assert.equal(secondDraft.game.userExposureEvents.length, exposureCountAfterFirstProof);
+  assert.deepEqual(getUserExposureSummary(secondDraft.game).byViewer.find((entry) => entry.viewerId === nikhilId)?.exactCardIds, ["suspect-0"]);
+});
+
+test("public proof counts record one visible exposure per card for the observing detective", () => {
+  const game = createGameFromSetup(createSetup());
+  const ashaId = game.players[1]!.id;
+
+  game.turnIndex = 2;
+  const firstDraft = createTurnDraft(game);
+  firstDraft.step = "user-prove";
+  firstDraft.suggestedCardIds = ["suspect-0", "weapon-0", "room-8"];
+  firstDraft.currentProverId = game.userPlayerId;
+  firstDraft.shownCardId = "suspect-0";
+  continueAfterUserProof(firstDraft);
+  const afterFirstTurn = commitTurn(firstDraft.game, firstDraft);
+
+  const exposure = getUserExposureSummary(afterFirstTurn);
+  assert.deepEqual(exposure.byViewer.find((entry) => entry.viewerId === ashaId)?.publicExposureCounts, [
+    { cardId: "suspect-0", count: 1 },
+    { cardId: "weapon-0", count: 1 }
+  ]);
+  assert.equal(exposure.byCard.find((entry) => entry.cardId === "suspect-0")?.publicExposureTurnCount, 1);
+  assert.equal(exposure.byCard.find((entry) => entry.cardId === "weapon-0")?.publicExposureTurnCount, 1);
 });

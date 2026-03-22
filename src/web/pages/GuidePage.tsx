@@ -12,18 +12,26 @@ const sections = [
     ]
   },
   {
-    title: "Trick 1",
+    title: "Direct Proof Collapse",
     lines: [
       "When a detective proves a suggestion and two of the three cards are already impossible for them, the remaining card becomes confirmed immediately.",
       "This is the fast path where a prove result directly collapses to one card because the board already ruled the other two out."
     ]
   },
   {
-    title: "Trick 2",
+    title: "Proof Memory",
     lines: [
       "When a detective proves a suggestion but the exact card is unknown, the engine remembers that they must own one of those candidate cards.",
       "Later eliminations can shrink that remembered set until only one card remains, at which point the engine resolves ownership automatically.",
-      "Open trick-2 memories are summarized in the timeline section so you can see what unresolved proof memory is still influencing deductions."
+      "Open proof memories are summarized in the timeline section so you can see what unresolved proof memory is still influencing deductions."
+    ]
+  },
+  {
+    title: "Exposure Memory",
+    lines: [
+      "When you prove a suggestion, the app now remembers which detective definitely saw the exact card you chose.",
+      "It also counts how often one of your cards was part of a public proof that other detectives could observe.",
+      "Use the Detective View and the prove dialog to avoid accidentally teaching the table more about your hand than necessary."
     ]
   },
   {
@@ -31,7 +39,7 @@ const sections = [
     lines: [
       "The solver respects each detective's hand size from setup.",
       "Once enough cards are confirmed for a detective to fill their full hand, the remaining unknown cards cannot be assigned to them.",
-      "This indirectly strengthens trick 1, trick 2, and envelope deductions because impossible ownership options disappear sooner."
+      "This indirectly strengthens direct proof collapse, proof memory resolution, and envelope deductions because impossible ownership options disappear sooner."
     ]
   },
   {

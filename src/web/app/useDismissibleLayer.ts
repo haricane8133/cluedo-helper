@@ -1,13 +1,15 @@
-import { useEffect } from "react";
-import { useBlocker } from "react-router-dom";
+import { useEffect, useRef } from "react";
 
 export const useDismissibleLayer = (active: boolean, onDismiss: () => void): void => {
-  const blocker = useBlocker(({ historyAction }) => active && historyAction === "POP");
+  const ignoreNextPopRef = useRef(false);
 
   useEffect(() => {
-    if (!active) {
+    if (!active || typeof window === "undefined") {
       return undefined;
     }
+
+    const sentinelKey = `dismissible:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    window.history.pushState({ ...window.history.state, dismissibleLayerKey: sentinelKey }, "", window.location.href);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") {
@@ -18,16 +20,26 @@ export const useDismissibleLayer = (active: boolean, onDismiss: () => void): voi
       onDismiss();
     };
 
+    const handlePopState = () => {
+      if (ignoreNextPopRef.current) {
+        ignoreNextPopRef.current = false;
+        return;
+      }
+
+      onDismiss();
+    };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("popstate", handlePopState);
+
+      if (window.history.state?.dismissibleLayerKey === sentinelKey) {
+        ignoreNextPopRef.current = true;
+        window.history.back();
+      }
+    };
   }, [active, onDismiss]);
-
-  useEffect(() => {
-    if (blocker.state !== "blocked") {
-      return;
-    }
-
-    onDismiss();
-    blocker.reset?.();
-  }, [blocker, onDismiss]);
 };

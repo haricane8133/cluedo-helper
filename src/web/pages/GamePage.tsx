@@ -10,13 +10,17 @@ import {
   getTokenImagePath
 } from "@/lib/constants";
 import {
+  ENVELOPE_OWNER_ID,
   getActivePlayer,
   getAuditTimelineEntries,
+  getDetectiveKnowledgeSummaries,
   getGameSummaryLabel,
   getOwnerLabel,
   getPlayerHandView,
   getSolutionCardIds,
   getSuspectCardIds,
+  getUserExposureCompactByCategory,
+  getUserExposureSummary,
   isValidSuggestion,
   shouldShowSolutionScreen
 } from "@/lib/game";
@@ -61,16 +65,28 @@ const CardTile = ({
   allowManualEdit?: boolean;
 }) => {
   const card = getCardDefinition(cardId);
+  const isEnvelopeCard = showStatus && game.cards[cardId].ownerId === ENVELOPE_OWNER_ID;
 
   return (
-    <article className={`card-tile ${selected ? "selected" : ""} ${onClick ? "clickable" : ""}`} onClick={onClick}>
+    <article className={`card-tile ${selected ? "selected" : ""} ${onClick ? "clickable" : ""} ${isEnvelopeCard ? "resolved-envelope" : ""}`} onClick={onClick}>
       <Link to={`/img/${cardId}`} onClick={(event) => event.stopPropagation()}>
         <img className="card-thumb" src={getTokenImagePath(cardId)} alt={card.name} />
       </Link>
       <div className="card-meta">
         <div className="card-name">{card.name}</div>
         {selected && <div className="meta-line"><strong>Selected</strong></div>}
+        {isEnvelopeCard && (
+          <div className="meta-line">
+            <span className="tag tag-success">Envelope Confirmed</span>
+          </div>
+        )}
         {showStatus && <OwnerLine game={game} cardId={cardId} />}
+        {showStatus && (
+          <div className="meta-line">
+            <strong>Times Suspected:</strong>
+            <span>{game.cards[cardId].suggestedCount}</span>
+          </div>
+        )}
         {allowManualEdit && <span className="subtle">Open to edit owner and not-owner deductions.</span>}
       </div>
     </article>
@@ -121,8 +137,12 @@ export const GamePage = () => {
     ? turnDraft.suggestedCardIds.filter((cardId) => game.cards[cardId].ownerId === game.userPlayerId)
     : [];
   const canProceedSuggestion = turnDraft ? isValidSuggestion(turnDraft.suggestedCardIds) : false;
-  const canConfirmShownCard = Boolean(turnDraft?.shownCardId);
+  const canConfirmShownCard = userMatchingCards.length === 0 || Boolean(turnDraft?.shownCardId);
   const timelineEntries = useMemo(() => getAuditTimelineEntries(history), [history]);
+  const exposureSummary = useMemo(() => getUserExposureSummary(game), [game]);
+  const exposureByCategory = useMemo(() => getUserExposureCompactByCategory(game), [game]);
+  const detectiveKnowledge = useMemo(() => getDetectiveKnowledgeSummaries(game), [game]);
+  const currentAskingPlayerId = turnDraft?.step === "user-prove" ? activePlayer.id : null;
 
   const topbarActions = (
     <>
@@ -151,7 +171,20 @@ export const GamePage = () => {
 
   const renderSuspectView = () => (
     <section className="stack">
-      {suspectCardIds.map((cardId) => (
+      {game.solutionReady && (
+        <section className="panel strong game-card stack suspect-warrant-panel">
+          <h3 className="section-title" style={{ marginTop: 0 }}>
+            {shouldShowSolutionScreen(game) ? "Warrant Ready" : "Warrant Locked In"}
+          </h3>
+          <p className="subtle" style={{ margin: 0 }}>
+            {shouldShowSolutionScreen(game)
+              ? "The deduction is complete and it is your turn. These are the three cards to accuse with."
+              : "The deduction is complete. Keep following the table until play returns to you, then accuse with these three cards."}
+          </p>
+          {renderSolution()}
+        </section>
+      )}
+      {!game.solutionReady && suspectCardIds.map((cardId) => (
         <CardTile key={cardId} cardId={cardId} game={game} />
       ))}
     </section>
@@ -161,33 +194,99 @@ export const GamePage = () => {
     <section className="stack">
       {game.players.map((player) => {
         const hand = getPlayerHandView(game, player.id);
+        const knowledge = detectiveKnowledge.find((entry) => entry.detectiveId === player.id) ?? null;
         return (
           <article key={player.id} className="panel game-card detective-card stack">
             <div>
               <h3 className="section-title" style={{ marginTop: 0 }}>
-                {player.id === game.userPlayerId ? "Your Cards" : `Cards with Detective ${player.name}`}
+                {player.id === game.userPlayerId ? "You" : player.name}
               </h3>
-              <p className="subtle" style={{ margin: 0 }}>
-                {hand.knownCardIds.length} known, {hand.unknownSlots} unknown slot{hand.unknownSlots === 1 ? "" : "s"}.
-              </p>
             </div>
-            <div className="detective-hand">
-              {hand.knownCardIds.map((cardId) => {
-                const card = getCardDefinition(cardId);
-                return (
-                  <Link key={cardId} to={`/img/${cardId}`} className="thumb-only">
-                    <img src={getTokenImagePath(cardId)} alt={card.name} />
-                    <span className="subtle">{card.name}</span>
-                  </Link>
-                );
-              })}
-              {Array.from({ length: hand.unknownSlots }).map((_, index) => (
-                <div key={`${player.id}-unknown-${index}`} className="thumb-only">
-                  <img src={QUESTION_TOKEN_IMAGE_PATH} alt="Unknown card" />
-                  <span className="subtle">Unknown</span>
+            {player.id === game.userPlayerId ? (
+              <div className="exposure-grid user-hand-grid">
+                {exposureSummary.byCard.map((entry) => {
+                  const card = getCardDefinition(entry.cardId);
+                  return (
+                    <article key={entry.cardId} className="status-card user-exposure-card">
+                      <Link to={`/img/${entry.cardId}`}>
+                        <img className="card-thumb" src={getTokenImagePath(entry.cardId)} alt={card.name} />
+                      </Link>
+                      <div className="card-meta">
+                        <div className="card-name">{card.name}</div>
+                        <div className="meta-line">
+                          <strong>Direct Reveals:</strong>
+                          <span>{entry.exactRevealCount}</span>
+                        </div>
+                        <div className="meta-line">
+                          <strong>Indirect Reveals:</strong>
+                          <span>{entry.publicExposureTurnCount}</span>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <div className="detective-hand">
+                  {hand.knownCardIds.map((cardId) => {
+                    const card = getCardDefinition(cardId);
+                    return (
+                      <Link key={cardId} to={`/img/${cardId}`} className="thumb-only">
+                        <img src={getTokenImagePath(cardId)} alt={card.name} />
+                        <span className="subtle">{card.name}</span>
+                      </Link>
+                    );
+                  })}
+                  {Array.from({ length: hand.unknownSlots }).map((_, index) => (
+                    <div key={`${player.id}-unknown-${index}`} className="thumb-only">
+                      <img src={QUESTION_TOKEN_IMAGE_PATH} alt="Unknown card" />
+                      <span className="subtle">Unknown</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+                {knowledge && (
+                  <>
+                  <div className="meta-line">
+                      <strong>Cards we suspect they may have:</strong>
+                      {knowledge.proofMemories.length > 0
+                        ? knowledge.proofMemories.map((memory, index) => (
+                            <span key={`${player.id}:memory:${index}`} className="tag">
+                              {memory.candidateCardIds.map((cardId) => getCardDefinition(cardId).name).join(", ")}
+                            </span>
+                          ))
+                        : <span>None</span>}
+                    </div>
+                    <div className="meta-line">
+                      <strong>Cards they know you have:</strong>
+                      {knowledge.exactCardIds.length > 0
+                        ? knowledge.exactCardIds.map((cardId) => <span key={`${player.id}:known:${cardId}`} className="tag">{getCardDefinition(cardId).name}</span>)
+                        : <span>None</span>}
+                    </div>
+                    <div className="meta-line">
+                      <strong>Cards they know you don't have:</strong>
+                      {knowledge.knownNotOwnerCardIds.length > 0
+                        ? knowledge.knownNotOwnerCardIds.map((cardId) => (
+                            <span key={`${player.id}:not-owner:${cardId}`} className="tag">
+                              {getCardDefinition(cardId).name}
+                            </span>
+                          ))
+                        : <span>None</span>}
+                    </div>
+                    <div className="meta-line">
+                      <strong>Cards they suspect you may have:</strong>
+                      {knowledge.publicExposureCounts.length > 0
+                        ? knowledge.publicExposureCounts.map((entry) => (
+                            <span key={`${player.id}:public:${entry.cardId}`} className="tag">
+                              {getCardDefinition(entry.cardId).name} x{entry.count}
+                            </span>
+                          ))
+                        : <span>None</span>}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </article>
         );
       })}
@@ -201,7 +300,7 @@ export const GamePage = () => {
           <h3 className="section-title" style={{ marginTop: 0 }}>Timeline</h3>
           <p className="subtle" style={{ marginBottom: 0 }}>
             One saved entry exists for setup, every committed turn, and every manual correction. Restore any entry to jump
-            back to that exact deduction state. Trick 2 proof memories are folded into the change list for the turn where
+            back to that exact deduction state. Proof memories are folded into the change list for the turn where
             they were learned or resolved.
           </p>
         </div>
@@ -273,7 +372,7 @@ export const GamePage = () => {
         {game.selectedTab === "detective" && renderDetectiveView()}
         {game.selectedTab === "audit" && renderAuditView()}
       </section>
-      <button className="fab" onClick={actions.startTurn} aria-label="Start the next turn" disabled={Boolean(turnDraft || manualEdit) || shouldShowSolutionScreen(game)}>
+      <button className="fab" onClick={actions.startTurn} aria-label={game.solutionReady ? "Show solved suspect view" : "Start the next turn"} disabled={Boolean(turnDraft || manualEdit)}>
         <img src="Assets/play_google_icon.png" alt="Play" />
       </button>
     </div>
@@ -297,6 +396,32 @@ export const GamePage = () => {
           Skip Turn
         </button>
       </div>
+      {activePlayer.id === game.userPlayerId && (
+        <section className="banner stack">
+          <div>
+            <h3 className="section-title" style={{ margin: 0 }}>What The Table Knows About Your Cards</h3>
+            <p className="subtle" style={{ margin: "0.35rem 0 0" }}>
+              Use this when choosing what to suggest and, later, which card to reveal. Direct reveals count detectives who have definitely seen the card. Public proof turns count how often that card was part of a proof visible to the table.
+            </p>
+          </div>
+          <div className="exposure-grid compact">
+            {Object.entries(exposureByCategory).map(([category, entries]) => (
+              <article key={category} className="status-card exposure-card">
+                <div className="card-meta">
+                  <div className="card-name">{category[0]?.toUpperCase()}{category.slice(1)}</div>
+                  {entries.length > 0 ? entries.map((entry) => (
+                    <div key={`${category}:${entry.cardId}`} className="meta-line exposure-line">
+                      <strong>{getCardDefinition(entry.cardId).name}</strong>
+                      <span className="tag">Exact: {entry.exactRevealCount}</span>
+                      <span className="tag">Seen in proofs: {entry.publicExposureTurnCount}</span>
+                    </div>
+                  )) : <span>None of your cards in this category.</span>}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="card-list">
         {CARD_DEFINITIONS.map((card) => (
           <CardTile
@@ -335,20 +460,56 @@ export const GamePage = () => {
     <section className="panel game-card stack">
       <h2 className="section-title" style={{ marginTop: 0 }}>You Must Prove</h2>
       <p className="subtle" style={{ marginTop: 0 }}>{turnDraft?.userMessage}</p>
-      <div className="detective-hand">
-        {userMatchingCards.map((cardId) => {
-          const card = getCardDefinition(cardId);
-          return (
-            <Link key={cardId} to={`/img/${cardId}`} className="thumb-only">
-              <img src={getTokenImagePath(cardId)} alt={card.name} />
-              <span className="subtle">{card.name}</span>
-            </Link>
-          );
-        })}
-      </div>
+      {userMatchingCards.length > 0 ? (
+        <div className="card-list">
+          {userMatchingCards.map((cardId) => {
+            const card = getCardDefinition(cardId);
+            const exposureEntry = exposureSummary.byCard.find((entry) => entry.cardId === cardId);
+            const exactViewerIds = exposureEntry?.exactViewerIds ?? [];
+            const otherExactViewers = exactViewerIds.filter((playerId) => playerId !== currentAskingPlayerId);
+            const alreadyShownToAsker = currentAskingPlayerId ? exactViewerIds.includes(currentAskingPlayerId) : false;
+
+            return (
+              <article
+                key={cardId}
+                className={`status-card clickable ${turnDraft?.shownCardId === cardId ? "selected" : ""}`}
+                onClick={() => actions.setShownCard(cardId)}
+              >
+                <Link to={`/img/${cardId}`} className="thumb-only" onClick={(event) => event.stopPropagation()}>
+                  <img src={getTokenImagePath(cardId)} alt={card.name} />
+                  <span className="subtle">{card.name}</span>
+                </Link>
+                <div className="card-meta">
+                  <div className="card-name">{card.name}</div>
+                  <div className="meta-line">
+                    <span className={`tag ${alreadyShownToAsker ? "tag-accent" : "tag-success"}`}>
+                      {currentAskingPlayerId
+                        ? alreadyShownToAsker
+                          ? `Already shown to ${activePlayer.name}`
+                          : `New to ${activePlayer.name}`
+                        : "Selectable"}
+                    </span>
+                    {turnDraft?.shownCardId === cardId && <span className="tag tag-success">Selected</span>}
+                  </div>
+                  <div className="meta-line">
+                    <strong>Other Direct Reveals:</strong>
+                    <span>{otherExactViewers.length}</span>
+                  </div>
+                  <div className="meta-line">
+                    <strong>Indirect Reveals:</strong>
+                    <span>{exposureEntry?.publicExposureTurnCount ?? 0}</span>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="subtle" style={{ margin: 0 }}>You do not hold any of the suggested cards.</p>
+      )}
       <div className="button-row">
-        <button className="button primary" onClick={actions.turnUserContinue}>
-          Continue
+        <button className="button primary" onClick={actions.turnUserContinue} disabled={!canConfirmShownCard}>
+          {userMatchingCards.length > 0 ? "Confirm Shown Card" : "Continue"}
         </button>
       </div>
     </section>
@@ -501,7 +662,7 @@ export const GamePage = () => {
           The deduction engine is now certain about the suspect, weapon, and room.
           {shouldShowSolutionScreen(game)
             ? " It is your turn, so you can make the accusation now."
-            : " Keep tracking play until the turn comes back to you, and the warrant section will stay visible then."}
+            : " Keep tracking play until the turn comes back to you, and the solved suspect view will stay visible then."}
         </p>
         <div className="solution-grid">
           {solutionCardIds.map((cardId) => (
@@ -525,7 +686,6 @@ export const GamePage = () => {
       <div className="stack">
         {!turnDraft && renderGameBoard()}
         {turnDraft && renderTurnFlow()}
-        {shouldShowSolutionScreen(game) && !turnDraft && !manualEdit && renderSolution()}
       </div>
 
       {manualEdit && renderManualEdit()}
